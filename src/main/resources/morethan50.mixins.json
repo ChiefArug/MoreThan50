@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "chiefarug.mods.morethan50.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "morethan50.refmap.json",
+  "plugin": "chiefarug.mods.morethan50.LetsLoadMixinExtrasMixinPlugin",
+  "mixins": [
+    "BeaconExtenderMixin"
+  ],
+  "minVersion": "0.8.5"
+}
