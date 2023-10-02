@@ -1,12 +1,12 @@
 package chiefarug.mods.morethan50.mixin;
 
 import chiefarug.mods.morethan50.MoreThan50;
-import com.google.common.collect.Lists;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -15,13 +15,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.world.ForgeChunkManager;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Desc;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -45,13 +44,7 @@ public class BeaconExtenderMixin extends BlockEntity {
 	@ModifyVariable(
 			method = "applyEffects",
 			at = @At("STORE")
-	)//TODO: rewrite this bit to use WrapOperation and just use what is passed in
-	/*
-	  	@WrapOperation(
-			method = "applyEffects",
-			at = @At(value = "INVOKE", target = "Lnet/minecraft/world/phys/AABB;expandTowards(DDD)Lnet/minecraft/world/phys/AABB;")
-		)
-	 */
+	)
 	//***************************************************************************************************************
 	//         Target Class : net.minecraft.world.level.block.entity.BeaconBlockEntity
 	//        Target Method : applyEffects
@@ -80,53 +73,64 @@ public class BeaconExtenderMixin extends BlockEntity {
 	// [ 11]                                        -
 	// [ 12]                                        -
 	//***************************************************************************************************************
-	private static AABB morethan50$increaseRange(AABB aabb) {
+	private static AABB morethan50$increaseRange(AABB _aabb, Level level, BlockPos pos, int tier) {
 		// Because we are using ModifyVariable instead of some other way, we get no context except the AABB.
 		// Thankfully, we can reconstruct literally everything we need from that.
 		// Stay in school kids, Maths is cool.
-		int normalRange = (int) ((aabb.getXsize() - 1) / 2);
-		if (normalRange >= infiniteRangeThreshold.get()) return INFINITE_EXTENT_AABB;
+		int normalRange = tier * 10 + 10;
+		if (tier >= infiniteRangeThreshold.get()) return INFINITE_EXTENT_AABB;
 
-		Vec3 vec3 = aabb.getCenter();
-		BlockPos beaconPos = new BlockPos(vec3.x, aabb.minY + normalRange, vec3.z);
-//		int extraUp = verticalMode.get().up ? (int) (aabb.maxY - normalRange - beaconPos.getY()) : 0;
-//		int extraDown = verticalMode.get().down ? (int) (aabb.maxY - normalRange - beaconPos.getY()) : 0;
+		AABB aabb = new AABB(pos).inflate(normalRange * multiplier.get());
+		if (verticalMode.get().up) aabb = aabb.expandTowards(0, level.getMaxBuildHeight(), 0);
+		if (verticalMode.get().down) aabb = aabb.expandTowards(0, level.getMinBuildHeight(), 0);
 
-		AABB newBox = new AABB(beaconPos).inflate(normalRange * multiplier.get());
-
-		return newBox;
+		return aabb;
 	}
 
 	@WrapOperation(
 			method = "applyEffects",
 			at = @At(value = "INVOKE", target =  "Lnet/minecraft/world/level/Level;getEntitiesOfClass(Ljava/lang/Class;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;")
 	)
-	private static List<? extends Player> morethan50$allowInfiniteAABB(Level level, Class<?> clazz, AABB aabb, Operation<List<Player>> defautlOp) {
+	private static List<? extends Player> morethan50$allowInfiniteAABB(Level level, Class<?> clazz, AABB aabb, Operation<List<Player>> defaultOp) {
 		if (aabb.equals(INFINITE_EXTENT_AABB)) {
 			if (clazz == Player.class) {
 				return level.players();
-			} else {
+			} else if (!morethan50$warnedAboutNonPlayers) {
 				LGGR.warn("Some other mod is messing with beacons and trying to apply effects to non players (specifically {})! MoreThan50 is unable to apply effects infinitely.", clazz);
 				morethan50$warnedAboutNonPlayers = true;
 			}
 		}
-		return defautlOp.call(level, clazz, aabb);
+		return defaultOp.call(level, clazz, aabb);
 	}
-
-	// DO NOT TRY TO INJECT HERE TO LOAD CHUNKS
-	// It causes a deadlock on world load for... reasons.
-	// Even though level#isLoaded returns true
-//	@Inject(method = "setLevel", at = @At("HEAD"))
-//	private void morethan50$startChunkLoading(Level lvl, CallbackInfo ci) {}
+//	@ModifyArg(
+//			method = "applyEffects",
+//			at = @At(value = "NEW", target = "(Lnet/minecraft/world/effect/MobEffect;IIZZ)Lnet/minecraft/world/effect/MobEffectInstance;"),
+//			index = 1,
+//			expect = 2
+//	)
+	@ModifyArg(
+		method = "applyEffects",
+		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;<init>(Lnet/minecraft/world/effect/MobEffect;IIZZ)V"),
+		index = 4,
+		expect = 2
+	)
+	private static boolean morethan50$disableParticles(boolean showParticles) {
+		// If the config option is disabled, rely on the default. If it is enabled, then cancel no matter what.
+		return !hideParticles.get() && showParticles;
+	}
 
 	@Inject(method = "tick", at = @At("HEAD"))
 	private static void morethan50$backupChunkloadOnTick(Level level, BlockPos pos, BlockState state, BeaconBlockEntity be, CallbackInfo ci) {
 		BeaconExtenderMixin accessor = ((BeaconExtenderMixin) ((BlockEntity) be));
-		if (!accessor.morethan50$haveWeChunkloaded) {
-			if (level instanceof ServerLevel sl/* && sl.isLoaded(pos)*/) {
+		if (chunkLoad.get()) {
+			if (!accessor.morethan50$haveWeChunkloaded && level instanceof ServerLevel sl) {
 				ChunkPos chunkPos = new ChunkPos(be.getBlockPos());
 				accessor.morethan50$haveWeChunkloaded = ForgeChunkManager.forceChunk(sl, MODID, pos, chunkPos.x, chunkPos.z, true, true);
 			}
+		} else if (accessor.morethan50$haveWeChunkloaded && level instanceof ServerLevel sl) {
+			// if the config option is disabled, and we have chunkloaded, then stop chunkloading
+			ChunkPos chunkPos = new ChunkPos(be.getBlockPos());
+			accessor.morethan50$haveWeChunkloaded = !ForgeChunkManager.forceChunk(sl, MODID, be.getBlockPos(), chunkPos.x, chunkPos.z, false, false);
 		}
 	}
 
