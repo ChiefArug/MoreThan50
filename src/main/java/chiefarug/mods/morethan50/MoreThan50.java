@@ -22,7 +22,7 @@ public class MoreThan50 {
 	public MoreThan50() {
 		ForgeConfigSpec.Builder specBuilder = new ForgeConfigSpec.Builder();
 		specBuilder.comment("The multiplier to apply to the beacons range. A value of 1 will use vanilla behaviour. A value of 0 will stop beacons applying effects.");
-		multiplier = specBuilder.defineInRange("size_multiplier", 3, 0, Double.POSITIVE_INFINITY);
+		multiplier = specBuilder.defineInRange("sizeMultiplier", 3, 0, Double.POSITIVE_INFINITY);
 		specBuilder.comment("Whether to forceload the chunk the beacon is in or not. ", "Recommended to be on when the multiplier * 50 is greater than your simulation distance * 16, or you have the range set to infinite at any tier");
 		chunkLoad = specBuilder.define("forceload", true);
 		specBuilder.comment("The tier at which the range becomes infinite.", "The default is 5, meaning that unless you have another mod that adds another tier, the range is never infinite.");
