@@ -34,6 +34,7 @@ public class MoreThan50 {
 
 		ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, specBuilder.build());
 	}
+	@SuppressWarnings("unused")
 	public enum VerticalMode {
 		UP(true, false),
 		DOWN(false, true),

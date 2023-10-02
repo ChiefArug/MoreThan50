@@ -1,7 +1,7 @@
 modLoader="javafml"
 loaderVersion="[43,)"
 license="MIT"
-# issueTrackerURL="https://change.me.to.your.issue.tracker.example.invalid/"
+issueTrackerURL="https://github.com/ChiefArug/MoreThan50/issues"
 [[mods]]
 modId="morethan50"
 version="${file.jarVersion}"
