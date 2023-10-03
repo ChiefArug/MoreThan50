@@ -1,24 +1,22 @@
 package chiefarug.mods.morethan50.mixin;
 
-import chiefarug.mods.morethan50.MoreThan50;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.effect.MobEffect;
-import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BeaconBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.world.ForgeChunkManager;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -29,7 +27,9 @@ import java.util.List;
 import static chiefarug.mods.morethan50.MoreThan50.*;
 import static chiefarug.mods.morethan50.MoreThan50.LGGR;
 
-@Mixin(BeaconBlockEntity.class)
+@SuppressWarnings("unused")
+@Pseudo
+@Mixin(targets = {"net.minecraft.world.level.block.entity.BeaconBlockEntity", "com.androsa.badbeacon.BadBeaconBlockEntity"})
 public class BeaconExtenderMixin extends BlockEntity {
 
 	@Unique
@@ -74,9 +74,6 @@ public class BeaconExtenderMixin extends BlockEntity {
 	// [ 12]                                        -
 	//***************************************************************************************************************
 	private static AABB morethan50$increaseRange(AABB _aabb, Level level, BlockPos pos, int tier) {
-		// Because we are using ModifyVariable instead of some other way, we get no context except the AABB.
-		// Thankfully, we can reconstruct literally everything we need from that.
-		// Stay in school kids, Maths is cool.
 		int normalRange = tier * 10 + 10;
 		if (tier >= infiniteRangeThreshold.get()) return INFINITE_EXTENT_AABB;
 
@@ -112,7 +109,8 @@ public class BeaconExtenderMixin extends BlockEntity {
 		method = "applyEffects",
 		at = @At(value = "INVOKE", target = "Lnet/minecraft/world/effect/MobEffectInstance;<init>(Lnet/minecraft/world/effect/MobEffect;IIZZ)V"),
 		index = 4,
-		expect = 2
+		expect = 2,
+		allow = 4
 	)
 	private static boolean morethan50$disableParticles(boolean showParticles) {
 		// If the config option is disabled, rely on the default. If it is enabled, then cancel no matter what.
@@ -120,17 +118,17 @@ public class BeaconExtenderMixin extends BlockEntity {
 	}
 
 	@Inject(method = "tick", at = @At("HEAD"))
-	private static void morethan50$backupChunkloadOnTick(Level level, BlockPos pos, BlockState state, BeaconBlockEntity be, CallbackInfo ci) {
-		BeaconExtenderMixin accessor = ((BeaconExtenderMixin) ((BlockEntity) be));
+	private static void morethan50$startChunkload(Level level, BlockPos pos, BlockState state, @Coerce BlockEntity be, CallbackInfo ci) {
+		BeaconExtenderMixin accessor = ((BeaconExtenderMixin) be);
 		if (chunkLoad.get()) {
 			if (!accessor.morethan50$haveWeChunkloaded && level instanceof ServerLevel sl) {
-				ChunkPos chunkPos = new ChunkPos(be.getBlockPos());
+				ChunkPos chunkPos = new ChunkPos(pos);
 				accessor.morethan50$haveWeChunkloaded = ForgeChunkManager.forceChunk(sl, MODID, pos, chunkPos.x, chunkPos.z, true, true);
 			}
 		} else if (accessor.morethan50$haveWeChunkloaded && level instanceof ServerLevel sl) {
 			// if the config option is disabled, and we have chunkloaded, then stop chunkloading
-			ChunkPos chunkPos = new ChunkPos(be.getBlockPos());
-			accessor.morethan50$haveWeChunkloaded = !ForgeChunkManager.forceChunk(sl, MODID, be.getBlockPos(), chunkPos.x, chunkPos.z, false, false);
+			ChunkPos chunkPos = new ChunkPos(pos);
+			accessor.morethan50$haveWeChunkloaded = !ForgeChunkManager.forceChunk(sl, MODID, pos, chunkPos.x, chunkPos.z, false, false);
 		}
 	}
 

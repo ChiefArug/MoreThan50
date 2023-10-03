@@ -26,7 +26,7 @@ minecraft {
     // accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
     runs {
-        all {
+        configureEach {
             workingDirectory project.file('run')
 
             property 'forge.logging.markers', 'REGISTRIES'
@@ -82,6 +82,7 @@ dependencies {
         jarJar.ranged(it, "[${mixin_extras_version},)")
     }
 
+    implementation fg.deobf("curse.maven:bad-beacon-335240:4008929")
     runtimeOnly fg.deobf("curse.maven:crash-utilities-371813:4406293")
 }
 
